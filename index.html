@@ -7,10 +7,12 @@
     <meta name="description" content="Bitácora de viajes y gastos offline">
     <meta name="theme-color" content="#0f172a">
     <link rel="manifest" href="./manifest.json">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <style>
         body { -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation; overscroll-behavior-y: none; background-color: #f1f5f9; }
         input, textarea, select { user-select: text; }
@@ -18,24 +20,54 @@
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        /* Estilos para pantalla de error */
+        #error-display { display: none; padding: 20px; background: #fee2e2; color: #991b1b; border: 2px solid #b91c1c; margin: 20px; border-radius: 10px; font-family: monospace; white-space: pre-wrap; }
     </style>
+
+    <script>
+        // Si hay un SW viejo molestando, esto lo elimina para forzar la actualización
+        if (window.navigator && navigator.serviceWorker) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    // Solo desregistramos si no es el controlador actual para evitar loops, 
+                    // o puedes forzarlo si estás bloqueado.
+                    // registration.unregister(); 
+                }
+            });
+        }
+        
+        // Manejador global de errores para mostrar en pantalla en lugar de pantalla blanca
+        window.onerror = function(message, source, lineno, colno, error) {
+            const display = document.getElementById('error-display');
+            if (display) {
+                display.style.display = 'block';
+                display.innerHTML = `<strong>⚠️ ERROR CRÍTICO:</strong>\n${message}\n\nEn: ${source}:${lineno}`;
+            }
+        };
+    </script>
 </head>
 <body>
+    <div id="error-display"></div>
     <div id="root"></div>
 
     <script>
-        // --- CONSTANTES ---
         const APP_CONFIG = {
             VERSION: "1.0.44",
             REPO_URL: "https://github.com/fernandomontesdeoca-beep/gemini_asistente_de_viaje",
+            // IMPORTANTE: Asegúrate de que version.json existe o esto dará error 404
             VERSION_CHECK_URL: "https://raw.githubusercontent.com/fernandomontesdeoca-beep/gemini_asistente_de_viaje/main/version.json"
         };
 
         const OFFICIAL_RATES = { toll: '162.00', fuel: '78.02', electricAC: '9.50', electricDC: '10.80' };
 
-        // --- HELPERS ---
-        const generateId = () => self.crypto && self.crypto.randomUUID ? self.crypto.randomUUID() : `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Fallback seguro para generación de IDs
+        const generateId = () => {
+            if (self.crypto && self.crypto.randomUUID) return self.crypto.randomUUID();
+            return `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        };
+        
         const formatMoney = (amount) => Number(amount || 0).toFixed(2);
+        
         const formatTime = (seconds) => {
             const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
             const secs = (seconds % 60).toString().padStart(2, '0');
@@ -56,28 +88,41 @@
                 req.onerror = (e) => reject(e.target.error);
             }),
             get: async (key) => {
-                const db = await dbHelper.init();
-                return new Promise((resolve) => {
-                    const req = db.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME).get(key);
-                    req.onsuccess = () => resolve(req.result);
-                    req.onerror = () => resolve(null);
-                });
+                try {
+                    const db = await dbHelper.init();
+                    return new Promise((resolve) => {
+                        const req = db.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME).get(key);
+                        req.onsuccess = () => resolve(req.result);
+                        req.onerror = () => resolve(null);
+                    });
+                } catch(e) { console.error(e); return null; }
             },
             set: async (key, val) => {
-                const db = await dbHelper.init();
-                return new Promise((resolve, reject) => {
-                    const req = db.transaction([STORE_NAME], 'readwrite').objectStore(STORE_NAME).put(val, key);
-                    req.onsuccess = () => resolve();
-                    req.onerror = (e) => reject(e.target.error);
-                });
+                try {
+                    const db = await dbHelper.init();
+                    return new Promise((resolve, reject) => {
+                        const req = db.transaction([STORE_NAME], 'readwrite').objectStore(STORE_NAME).put(val, key);
+                        req.onsuccess = () => resolve();
+                        req.onerror = (e) => reject(e.target.error);
+                    });
+                } catch(e) { console.error(e); }
             }
         };
+        
+        // REGISTRO SERVICE WORKER
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(reg => console.log('SW registrado'))
+                    .catch(err => console.log('SW falló:', err));
+            });
+        }
     </script>
 
     <script type="text/babel">
         const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
-        // --- SISTEMA DE ICONOS (Lucide Simplificado) ---
+        // --- SISTEMA DE ICONOS ---
         const ICONS = {
             Play: <polygon points="5 3 19 12 5 21 5 3" />,
             MapPin: <><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></>,
@@ -131,16 +176,18 @@
             <div onClick={onClick} className={`bg-white rounded-2xl shadow-sm border border-slate-100 p-4 ${className} ${onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}>{children}</div>
         );
 
-        // --- CUSTOM HOOKS (Lógica separada) ---
+        // --- CUSTOM HOOKS ---
 
-        // Hook de Versión de GitHub
+        // Hook de Versión de GitHub (A PRUEBA DE FALLOS)
         const useGitHubVersion = () => {
             const [newVersion, setNewVersion] = useState(null);
             useEffect(() => {
                 fetch(APP_CONFIG.VERSION_CHECK_URL)
-                    .then(res => res.json())
+                    .then(res => {
+                        if (!res.ok) throw new Error("404 Not Found");
+                        return res.json();
+                    })
                     .then(data => {
-                        // Comparación simple de semver (ej. 1.0.44 > 1.0.43)
                         const currentParts = APP_CONFIG.VERSION.split('.').map(Number);
                         const remoteParts = data.version.split('.').map(Number);
                         let hasUpdate = false;
@@ -150,7 +197,10 @@
                         }
                         if (hasUpdate) setNewVersion(data.version);
                     })
-                    .catch(e => console.log("Offline mode or update check failed", e));
+                    .catch(e => {
+                        // Silenciosamente ignoramos el error de versión, no rompemos la app
+                        console.log("No se pudo verificar actualizaciones (posiblemente offline o falta version.json)", e);
+                    });
             }, []);
             return newVersion;
         };
@@ -169,7 +219,7 @@
 
             const setPersistedState = (newValue) => {
                 setState(newValue);
-                dbHelper.set(key, newValue); // Persiste al instante
+                dbHelper.set(key, newValue); 
             };
             return [state, setPersistedState, loaded];
         };
@@ -209,7 +259,7 @@
             useEffect(() => {
                 Promise.all([dbHelper.get('appState'), dbHelper.get('currentTrip')]).then(([savedState, savedTrip]) => {
                     if (savedState === 'ACTIVE' && savedTrip) {
-                        setCurrentTrip({ ...savedTrip, startTime: new Date(savedTrip.startTime) }); // Revivir fecha
+                        setCurrentTrip({ ...savedTrip, startTime: new Date(savedTrip.startTime) });
                         setModals(prev => ({ ...prev, resume: true }));
                     }
                 });
@@ -236,7 +286,7 @@
 
             // Persistencia Crítica de Estado
             useEffect(() => {
-                if (tripsLoaded) { // Solo guardar si ya cargó para no sobrescribir con null
+                if (tripsLoaded) {
                    dbHelper.set('appState', appState);
                    dbHelper.set('currentTrip', currentTrip);
                 }
@@ -263,7 +313,7 @@
                 const finalTrip = {
                     ...currentTrip,
                     endTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    startTime: currentTrip.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), // Flatten date
+                    startTime: currentTrip.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
                     date: new Date().toLocaleDateString(),
                     destination: dest,
                     distance: distance > 0 ? distance : 0,
@@ -277,15 +327,6 @@
                 
                 setAppState('IDLE');
                 setCurrentTrip(null);
-            };
-
-            const addExpense = (data) => {
-                const newExpense = { ...data, id: generateId(), date: new Date().toLocaleDateString() };
-                setExpenses([newExpense, ...expenses]);
-                if (appState === 'ACTIVE') {
-                    setCurrentTrip(prev => ({ ...prev, tripExpenses: [...prev.tripExpenses, newExpense] }));
-                }
-                setModals(prev => ({ ...prev, expense: false }));
             };
 
             // --- VISTAS ---
