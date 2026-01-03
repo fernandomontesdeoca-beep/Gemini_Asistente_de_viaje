@@ -1,59 +1,57 @@
-const CACHE_NAME = 'trip-assistant-v1.0.43';
-const IS_PRODUCTION = true; // Cambiar a false si estás editando localmente para ver cambios al instante
-
-// Archivos requeridos para que la app funcione offline
-const ASSETS_TO_CACHE = [
-  './',                      // La raíz del sitio
-  './index.html',            // El archivo principal (si lo renombras en GitHub Pages)
-  './manifest.json',         // El manifiesto
+const CACHE_NAME = 'trip-assistant-v1.0.44';
+const STATIC_ASSETS = [
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   'https://unpkg.com/@babel/standalone/babel.min.js'
-  // Nota: Los iconos están integrados en el HTML, no necesitan caché externa
 ];
 
-// Instalación: Guardar archivos en caché
+const CRITICAL_FILES = [
+    './',
+    './index.html',
+    './version.json',
+    './manifest.json'
+];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Caching app shell');
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll([...STATIC_ASSETS, ...CRITICAL_FILES]))
   );
-  self.skipWaiting(); // Forzar activación inmediata
+  self.skipWaiting();
 });
 
-// Activación: Limpiar cachés viejas
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('[Service Worker] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    caches.keys().then((names) => Promise.all(
+      names.map((name) => {
+        if (name !== CACHE_NAME) return caches.delete(name);
+      })
+    ))
   );
   return self.clients.claim();
 });
 
-// Intercepción de peticiones: Servir desde caché primero, luego red
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Estrategia 1: Network First (Para tu código: index.html y version.json)
+  // Intentamos obtener lo nuevo. Si falla, mostramos lo guardado.
+  if (url.pathname.endsWith('index.html') || url.pathname.endsWith('/') || url.pathname.endsWith('version.json') || url.pathname.endsWith('manifest.json')) {
+      event.respondWith(
+        fetch(event.request)
+          .then(response => {
+            const resClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, resClone));
+            return response;
+          })
+          .catch(() => caches.match(event.request))
+      );
+      return;
+  }
+
+  // Estrategia 2: Cache First (Para librerías externas CDN)
+  // Si ya las tenemos, no las bajamos de nuevo.
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Si está en caché, devolverlo
-      if (response) {
-        return response;
-      }
-      // Si no, ir a la red
-      return fetch(event.request).catch(() => {
-        // Fallback para cuando no hay internet y no está en caché (opcional)
-        // Podrías retornar una página de "Offline" aquí si quisieras
-      });
-    })
+    caches.match(event.request).then((response) => response || fetch(event.request))
   );
 });
