@@ -3,39 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Asistente de Viaje v1.0.44</title>
+    <title>Asistente de Viaje v1.0.43</title>
     <meta name="description" content="Bitácora de viajes y gastos offline">
     <meta name="theme-color" content="#0f172a">
     
+    <!-- Enlace al Manifiesto (Necesario para PWA) -->
     <link rel="manifest" href="./manifest.json">
     
+    <!-- 1. Estilos: Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. React y ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 3. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation; overscroll-behavior-y: none; background-color: #f1f5f9; }
-        input, textarea, select { user-select: text; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        body {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            touch-action: manipulation;
+            overscroll-behavior-y: none;
+            background-color: #f1f5f9;
+        }
+        input, textarea, select {
+            user-select: text;
+        }
+        /* Ocultar scrollbar pero mantener funcionalidad */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
-        // URL del archivo RAW en GitHub para chequear versión
-        const GITHUB_RAW_URL = "https://raw.githubusercontent.com/fernandomontesdeoca-beep/gemini_asistente_de_viaje/main/index.html";
-        const GITHUB_REPO_URL = "https://github.com/fernandomontesdeoca-beep/gemini_asistente_de_viaje";
-        const CURRENT_VERSION = "1.0.44";
+        const { useState, useEffect } = React;
 
         // ==========================================
-        // SISTEMA DE ICONOS (Corregido)
+        // SISTEMA DE ICONOS INTEGRADO
         // ==========================================
         const ICONS = {
             Play: <polygon points="5 3 19 12 5 21 5 3" />,
@@ -68,10 +88,7 @@
             ArrowRight: <path d="M5 12h14M12 5l7 7-7 7" />,
             Trash2: <><path d="M3 6h18" /><path d="M19 6v14c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></>,
             Calendar: <><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></>,
-            Home: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
-            Info: <><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="16" y2="12" /><line x1="12" x2="12.01" y1="8" y2="8" /></>,
-            Github: <><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /><path d="M9 18c-4.51 2-5-2-7-2" /></>,
-            Wifi: <><path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M1.42 9a16 16 0 0 1 21.16 0" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" x2="12.01" y1="20" y2="20" /></>
+            Home: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
         };
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -196,85 +213,7 @@
 
         // --- COMPONENTES ---
 
-        // Modal de Nueva Versión (GitHub)
-        const NewVersionModal = ({ isOpen, remoteVersion, onClose }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-                        <div className="flex flex-col items-center text-center">
-                            <div className="bg-emerald-100 p-3 rounded-full mb-4">
-                                <Icon name="Wifi" size={32} className="text-emerald-600"/>
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">Nueva Versión Disponible</h3>
-                            <p className="text-slate-500 mb-2 text-sm">Se detectó la versión <strong>{remoteVersion}</strong> en GitHub.</p>
-                            <p className="text-slate-400 mb-6 text-xs">Versión actual: {CURRENT_VERSION}</p>
-                            <div className="w-full flex gap-3">
-                                <button onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">Cancelar</button>
-                                <a href={GITHUB_REPO_URL} target="_blank" className="flex-1 py-3 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg flex items-center justify-center">
-                                    <Icon name="Github" size={18} className="mr-2"/> Actualizar
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // Modal de Información (i)
-        const InfoModal = ({ isOpen, onClose }) => {
-            if (!isOpen) return null;
-            return (
-                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4" onClick={onClose}>
-                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold text-slate-800 flex items-center">
-                                <Icon name="Info" size={24} className="mr-2 text-blue-600"/> Información
-                            </h3>
-                            <button onClick={onClose} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200"><Icon name="X" size={20} className="text-slate-500"/></button>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <p className="text-xs text-slate-400 uppercase font-bold mb-1">Versión Local</p>
-                                <p className="text-lg font-bold text-slate-800">{CURRENT_VERSION}</p>
-                            </div>
-                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <p className="text-xs text-slate-400 uppercase font-bold mb-1">Repositorio</p>
-                                <a href={GITHUB_REPO_URL} target="_blank" className="text-blue-600 font-bold text-sm flex items-center hover:underline">
-                                    Ver en GitHub <Icon name="Github" size={14} className="ml-1"/>
-                                </a>
-                            </div>
-                            <div className="text-center pt-2">
-                                <p className="text-xs text-slate-400">© 2025 Asistente de Viaje</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        // Modal para Retomar Viaje Interrumpido
-        const ResumeTripModal = ({ isOpen, onResume, onDiscard }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[110] flex items-center justify-center p-4 animate-fade-in">
-                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border-l-8 border-amber-500">
-                        <div className="flex flex-col items-start">
-                            <div className="flex items-center text-amber-600 mb-4">
-                                <Icon name="AlertTriangle" size={32} className="mr-2"/>
-                                <h3 className="text-xl font-bold text-slate-800">Viaje Interrumpido</h3>
-                            </div>
-                            <p className="text-slate-600 mb-6 font-medium leading-relaxed">Se detectó que la aplicación se cerró inesperadamente durante un viaje activo. ¿Deseas continuar?</p>
-                            <div className="w-full flex gap-3">
-                                <button onClick={onDiscard} className="px-4 py-3 rounded-xl font-bold text-rose-500 bg-rose-50 hover:bg-rose-100">Descartar</button>
-                                <button onClick={onResume} className="flex-1 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">Continuar Viaje</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
+        // Modal de Actualización Online (Simulado)
         const UpdatePromptModal = ({ isOpen, onClose, onConfirm }) => {
             if (!isOpen) return null;
             return (
@@ -715,11 +654,10 @@
             const [historyTab, setHistoryTab] = useState('TRIPS');
             const [dataLoaded, setDataLoaded] = useState(false);
 
-            // Odómetros Inicializados en 0
             const [vehicleOdometers, setVehicleOdometers] = useState({
-                PERSONAL: 0,
-                COMPANY_FUEL: 0,
-                COMPANY_ELECTRIC: 0,
+                PERSONAL: 10500,
+                COMPANY_FUEL: 45200,
+                COMPANY_ELECTRIC: 5000,
                 OTHER: 0
             });
             
@@ -738,23 +676,17 @@
             const [showDestinationModal, setShowDestinationModal] = useState(false); 
             const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
             const [showParkingAskModal, setShowParkingAskModal] = useState(false);
-            const [showChargeTypeModal, setShowChargeTypeModal] = useState(false); 
-            const [showUpdatePrompt, setShowUpdatePrompt] = useState(false); 
-            // NUEVOS MODALES
-            const [showNewVersionModal, setShowNewVersionModal] = useState(false);
-            const [newVersionDetected, setNewVersionDetected] = useState('');
-            const [showInfoModal, setShowInfoModal] = useState(false);
-            const [showResumeModal, setShowResumeModal] = useState(false);
-            const [tempResumableTrip, setTempResumableTrip] = useState(null);
+            const [showChargeTypeModal, setShowChargeTypeModal] = useState(false); // Modal selector AC/DC
+            const [showUpdatePrompt, setShowUpdatePrompt] = useState(false); // Modal actualización online
 
             const [editingTrip, setEditingTrip] = useState(null);
-            const [editingVisit, setEditingVisit] = useState(null);
+            const [editingVisit, setEditingVisit] = useState(null); // Nuevo estado para editar visita
             
             const [locationSelectorMode, setLocationSelectorMode] = useState('ORIGIN'); 
             const [textModalTitle, setTextModalTitle] = useState('Nombre del Cliente');
             const [pendingStartData, setPendingStartData] = useState(null);
 
-            // Configs
+            // Configs (Valores actuales)
             const [vehicleConfigs, setVehicleConfigs] = useState({
                 PERSONAL: { tollPrice: '162.00', fuelPrice: '78.02', kmValue: '15.00', currency: 'UYU' },
                 COMPANY_FUEL: { tollPrice: '162.00', fuelPrice: '78.02', kmValue: '12.00', currency: 'UYU' },
@@ -783,8 +715,8 @@
                 method: 'EFECTIVO',
                 type: 'Personal',
                 notes: '',
-                odometer: '', 
-                volume: ''
+                odometer: '', // Nuevo campo
+                volume: '' // Nuevo campo (litros/kwh)
             });
 
             const [inputOdometer, setInputOdometer] = useState('');
@@ -797,15 +729,13 @@
             useEffect(() => {
                 const loadData = async () => {
                     try {
-                        const [savedTrips, savedExpenses, savedVisits, savedOdometers, savedConfigs, savedLocation, savedAppState, savedCurrentTrip] = await Promise.all([
+                        const [savedTrips, savedExpenses, savedVisits, savedOdometers, savedConfigs, savedLocation] = await Promise.all([
                             dbHelper.get('trips'),
                             dbHelper.get('expenses'),
                             dbHelper.get('visits'),
                             dbHelper.get('odometers'),
                             dbHelper.get('configs'),
-                            dbHelper.get('lastLocation'),
-                            dbHelper.get('appState'), // Estado guardado
-                            dbHelper.get('currentTrip') // Viaje en curso guardado
+                            dbHelper.get('lastLocation')
                         ]);
 
                         if (savedTrips) setTrips(savedTrips);
@@ -815,18 +745,10 @@
                         if (savedConfigs) setVehicleConfigs(savedConfigs);
                         if (savedLocation) setLastLocation(savedLocation);
                         
-                        // RECUPERAR VIAJE INTERRUMPIDO
-                        if (savedAppState === 'ACTIVE' && savedCurrentTrip) {
-                            // Restaurar fechas desde string
-                            if (savedCurrentTrip.startTime && typeof savedCurrentTrip.startTime === 'string') {
-                                savedCurrentTrip.startTime = new Date(savedCurrentTrip.startTime);
-                            }
-                            setTempResumableTrip(savedCurrentTrip);
-                            setShowResumeModal(true);
+                        // Check for updates if not first run (simulated)
+                        if (savedConfigs) {
+                            setShowUpdatePrompt(true);
                         }
-
-                        // Verificar actualizaciones
-                        checkForUpdates();
 
                         setDataLoaded(true);
                     } catch (error) {
@@ -837,84 +759,25 @@
                 loadData();
             }, []);
 
-            // PERSISTENCIA (Incluyendo AppState y CurrentTrip para anti-cierre)
             useEffect(() => { if(dataLoaded) dbHelper.set('trips', trips); }, [trips, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('expenses', expenses); }, [expenses, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('visits', visits); }, [visits, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('odometers', vehicleOdometers); }, [vehicleOdometers, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('configs', vehicleConfigs); }, [vehicleConfigs, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('lastLocation', lastLocation); }, [lastLocation, dataLoaded]);
-            useEffect(() => { if(dataLoaded) dbHelper.set('appState', appState); }, [appState, dataLoaded]);
-            useEffect(() => { if(dataLoaded) dbHelper.set('currentTrip', currentTrip); }, [currentTrip, dataLoaded]);
 
             // --- TIMER ---
             useEffect(() => {
                 let interval;
                 if (appState === 'ACTIVE') {
-                    // Si recuperamos un viaje, calculamos el tiempo real transcurrido
-                    if (currentTrip.startTime) {
-                         const start = new Date(currentTrip.startTime).getTime();
-                         const now = new Date().getTime();
-                         const diff = Math.floor((now - start) / 1000);
-                         setElapsedTime(diff > 0 ? diff : 0);
-                    }
                     interval = setInterval(() => setElapsedTime(prev => prev + 1), 1000);
                 } else {
                     setElapsedTime(0);
                 }
                 return () => clearInterval(interval);
-            }, [appState]); // Dependencia simplificada para evitar reseteos
+            }, [appState]);
 
             // --- LOGIC ---
-
-            // VERIFICADOR DE VERSIÓN (GitHub)
-            const checkForUpdates = async () => {
-                try {
-                    const response = await fetch(GITHUB_RAW_URL);
-                    if (response.ok) {
-                        const text = await response.text();
-                        // Buscamos el string de versión en el título
-                        const versionMatch = text.match(/<title>Asistente de Viaje v(\d+\.\d+\.\d+)<\/title>/);
-                        if (versionMatch && versionMatch[1]) {
-                            const remoteVer = versionMatch[1];
-                            if (compareVersions(remoteVer, CURRENT_VERSION) > 0) {
-                                setNewVersionDetected(remoteVer);
-                                setShowNewVersionModal(true);
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.log("No se pudo verificar actualizaciones (offline).");
-                }
-            };
-
-            const compareVersions = (v1, v2) => {
-                const parts1 = v1.split('.').map(Number);
-                const parts2 = v2.split('.').map(Number);
-                for (let i = 0; i < 3; i++) {
-                    if (parts1[i] > parts2[i]) return 1;
-                    if (parts1[i] < parts2[i]) return -1;
-                }
-                return 0;
-            };
-
-            const handleResumeTrip = () => {
-                if (tempResumableTrip) {
-                    setCurrentTrip(tempResumableTrip);
-                    setAppState('ACTIVE');
-                    setDashboardVehicleId(tempResumableTrip.vehicle);
-                }
-                setShowResumeModal(false);
-            };
-
-            const handleDiscardTrip = () => {
-                setTempResumableTrip(null);
-                setAppState('IDLE');
-                // Limpiamos la DB para que no vuelva a preguntar
-                dbHelper.set('appState', 'IDLE');
-                dbHelper.set('currentTrip', null);
-                setShowResumeModal(false);
-            };
 
             const handleUpdateRates = () => {
                 const updatedConfigs = { ...vehicleConfigs };
@@ -1120,18 +983,14 @@
             };
 
             const startTripProcess = (startOdo, destinationOverride = undefined) => {
-                const newTripState = {
-                    ...currentTrip,
+                setCurrentTrip(prev => ({
+                    ...prev,
                     startTime: new Date(),
                     origin: lastLocation,
                     destination: destinationOverride !== undefined ? destinationOverride : inputDestination, 
                     startOdometer: startOdo,
-                };
-                setCurrentTrip(newTripState);
+                }));
                 setAppState('ACTIVE');
-                // Guardar inmediatamente
-                dbHelper.set('appState', 'ACTIVE');
-                dbHelper.set('currentTrip', newTripState);
             };
 
             const handleArrivePress = () => {
@@ -1155,7 +1014,7 @@
             const confirmEndTrip = () => {
                 const endOdo = parseInt(inputOdometer) || 0;
                 const distance = endOdo - currentTrip.startOdometer;
-                const safeStartTime = currentTrip.startTime instanceof Date ? currentTrip.startTime : new Date(currentTrip.startTime);
+                const safeStartTime = currentTrip.startTime instanceof Date ? currentTrip.startTime : new Date();
                 const safeEndTime = new Date();
 
                 const newTrip = {
@@ -1206,10 +1065,6 @@
                 setVehicleOdometers(prev => ({ ...prev, [currentTrip.vehicle]: endOdo }));
                 setLastLocation(inputDestination);
                 setAppState('IDLE');
-                
-                // Limpiar persistencia
-                dbHelper.set('appState', 'IDLE');
-                dbHelper.set('currentTrip', null);
             };
 
             const handleLocationSelection = (loc) => {
@@ -1382,24 +1237,6 @@
                         onClose={() => setShowUpdatePrompt(false)}
                         onConfirm={handleUpdateRates}
                     />
-
-                    {/* MODALES NUEVOS AÑADIDOS */}
-                    <NewVersionModal
-                        isOpen={showNewVersionModal}
-                        remoteVersion={newVersionDetected}
-                        onClose={() => setShowNewVersionModal(false)}
-                    />
-
-                    <InfoModal 
-                        isOpen={showInfoModal}
-                        onClose={() => setShowInfoModal(false)}
-                    />
-
-                    <ResumeTripModal 
-                        isOpen={showResumeModal}
-                        onResume={handleResumeTrip}
-                        onDiscard={handleDiscardTrip}
-                    />
                     
                     <TripEditModal 
                         isOpen={!!editingTrip}
@@ -1466,13 +1303,8 @@
                                 </div>
                             )}
 
-                            <div className="bg-slate-800 text-white p-6 rounded-b-[2rem] shadow-xl z-10 relative">
-                                {/* BOTON INFO AÑADIDO */}
-                                <button onClick={() => setShowInfoModal(true)} className="absolute top-6 left-6 text-slate-400 hover:text-white transition-colors">
-                                    <Icon name="Info" size={20}/>
-                                </button>
-
-                                <div className="flex justify-between items-start mb-6 pl-8">
+                            <div className="bg-slate-800 text-white p-6 rounded-b-[2rem] shadow-xl z-10">
+                                <div className="flex justify-between items-start mb-6">
                                     <div><h1 className="text-xl font-bold">Bitácora de Viaje</h1><p className="text-slate-400 text-xs">Sistema de Control</p></div>
                                     <div className="flex gap-2">
                                         <button onClick={() => setAppState('HISTORY')} className="bg-slate-700 p-2 rounded-full hover:bg-slate-600 transition-colors"><Icon name="History" size={20}/></button>
