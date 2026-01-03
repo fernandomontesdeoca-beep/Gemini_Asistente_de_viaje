@@ -7,17 +7,13 @@
     <meta name="description" content="Bitácora de viajes y gastos offline">
     <meta name="theme-color" content="#0f172a">
     
-    <!-- Enlace al Manifiesto (Necesario para PWA) -->
     <link rel="manifest" href="./manifest.json">
     
-    <!-- 1. Estilos: Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 2. React y ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- 3. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -52,7 +48,15 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
+
+        // ==========================================
+        // CONFIGURACIÓN GLOBAL
+        // ==========================================
+        const CURRENT_VERSION = "1.0.43";
+        const GITHUB_REPO_URL = "https://github.com/fernandomontesdeoca-beep/gemini_asistente_de_viaje";
+        // URL Raw para chequear la versión (Ajustar rama 'main' o 'master' según corresponda)
+        const GITHUB_RAW_URL = "https://raw.githubusercontent.com/fernandomontesdeoca-beep/gemini_asistente_de_viaje/main/index.html";
 
         // ==========================================
         // SISTEMA DE ICONOS INTEGRADO
@@ -88,7 +92,11 @@
             ArrowRight: <path d="M5 12h14M12 5l7 7-7 7" />,
             Trash2: <><path d="M3 6h18" /><path d="M19 6v14c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></>,
             Calendar: <><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></>,
-            Home: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            Home: <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+            Info: <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="16" y2="12" /><line x1="12" x2="12.01" y1="8" y2="8" />,
+            Github: <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /><path d="M9 18c-4.51 2-5-2-7-2" />,
+            Wifi: <path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M1.42 9a16 16 0 0 1 21.16 0" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" x2="12.01" y1="20" y2="20" />,
+            WifiOff: <line x1="1" x2="23" y1="1" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.58 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" x2="12.01" y1="20" y2="20" />
         };
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -157,7 +165,7 @@
         // --- INDEXEDDB HELPERS ---
         const DB_NAME = 'TripAssistantDB';
         const STORE_NAME = 'app_data';
-        const DB_VERSION = 1;
+        const DB_VERSION = 2; // Incrementamos versión por cambios de estructura si fuera necesario
 
         const dbHelper = {
             init: () => {
@@ -211,29 +219,84 @@
              return Number(amount || 0).toFixed(2);
         };
 
-        // --- COMPONENTES ---
+        // --- COMPONENTES MODALES ---
 
-        // Modal de Actualización Online (Simulado)
-        const UpdatePromptModal = ({ isOpen, onClose, onConfirm }) => {
+        const NewVersionModal = ({ isOpen, remoteVersion, onClose }) => {
             if (!isOpen) return null;
             return (
                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
                         <div className="flex flex-col items-center text-center">
-                            <div className="bg-blue-100 p-3 rounded-full mb-4">
-                                <Icon name="Zap" size={32} className="text-blue-600"/>
+                            <div className="bg-emerald-100 p-3 rounded-full mb-4">
+                                <Icon name="Zap" size={32} className="text-emerald-600"/>
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">Actualización de Tarifas</h3>
-                            <p className="text-slate-500 mb-6 text-sm">Se han detectado nuevos valores oficiales (UTE/ANCAP 2025). ¿Deseas actualizar tu configuración?</p>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">Nueva Versión Disponible</h3>
+                            <p className="text-slate-500 mb-2 text-sm">Se detectó la versión <strong>{remoteVersion}</strong> en GitHub.</p>
+                            <p className="text-slate-400 mb-6 text-xs">Versión actual: {CURRENT_VERSION}</p>
                             <div className="w-full flex gap-3">
-                                <button onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">Ahora no</button>
-                                <button onClick={onConfirm} className="flex-1 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">Actualizar</button>
+                                <button onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">Cancelar</button>
+                                <a href={GITHUB_REPO_URL} target="_blank" className="flex-1 py-3 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg flex items-center justify-center">
+                                    <Icon name="Github" size={18} className="mr-2"/> Actualizar
+                                </a>
                             </div>
                         </div>
                     </div>
                 </div>
             );
         };
+
+        const InfoModal = ({ isOpen, onClose }) => {
+            if (!isOpen) return null;
+            return (
+                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4" onClick={onClose}>
+                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center">
+                                <Icon name="Info" size={24} className="mr-2 text-blue-600"/> Información
+                            </h3>
+                            <button onClick={onClose} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200"><Icon name="X" size={20} className="text-slate-500"/></button>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <p className="text-xs text-slate-400 uppercase font-bold mb-1">Versión Local</p>
+                                <p className="text-lg font-bold text-slate-800">{CURRENT_VERSION}</p>
+                            </div>
+                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <p className="text-xs text-slate-400 uppercase font-bold mb-1">Repositorio</p>
+                                <a href={GITHUB_REPO_URL} target="_blank" className="text-blue-600 font-bold text-sm flex items-center hover:underline">
+                                    Ver en GitHub <Icon name="Github" size={14} className="ml-1"/>
+                                </a>
+                                <p className="text-[10px] text-slate-400 mt-1 truncate">{GITHUB_REPO_URL}</p>
+                            </div>
+                            <div className="text-center pt-2">
+                                <p className="text-xs text-slate-400">© 2025 Asistente de Viaje</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const ResumeTripModal = ({ isOpen, onResume, onDiscard }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[110] flex items-center justify-center p-4 animate-fade-in">
+                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border-l-8 border-amber-500">
+                        <div className="flex flex-col items-start">
+                            <div className="flex items-center text-amber-600 mb-4">
+                                <Icon name="AlertTriangle" size={32} className="mr-2"/>
+                                <h3 className="text-xl font-bold text-slate-800">Viaje Interrumpido</h3>
+                            </div>
+                            <p className="text-slate-600 mb-6 font-medium leading-relaxed">Se detectó que la aplicación se cerró inesperadamente durante un viaje activo. ¿Deseas continuar?</p>
+                            <div className="w-full flex gap-3">
+                                <button onClick={onDiscard} className="px-4 py-3 rounded-xl font-bold text-rose-500 bg-rose-50 hover:bg-rose-100">Descartar</button>
+                                <button onClick={onResume} className="flex-1 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">Continuar Viaje</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
         const ChargeTypeModal = ({ isOpen, onClose, onSelectType }) => {
             if (!isOpen) return null;
@@ -385,12 +448,9 @@
                 setFormData(trip || {});
             }, [trip]);
 
-            // Función para recalcular distancia si cambian los odómetros
             const handleOdometerChange = (type, val) => {
                 const newValue = parseInt(val) || 0;
                 const newFormData = { ...formData, [type]: newValue };
-                
-                // Si ambos odómetros tienen valor, calcular distancia
                 if (newFormData.startOdometer !== undefined && newFormData.endOdometer !== undefined) {
                     newFormData.distance = newFormData.endOdometer - newFormData.startOdometer;
                 }
@@ -426,7 +486,6 @@
                                 </div>
                             </div>
                             
-                            {/* Campos de Odómetro */}
                             <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl">
                                 <div>
                                     <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Odo. Inicio</label>
@@ -650,14 +709,14 @@
         const App = () => {
             // --- ESTADO ---
             const [appState, setAppState] = useState('IDLE');
-            const [defaultVehicleId, setDefaultVehicleId] = useState('PERSONAL');
             const [historyTab, setHistoryTab] = useState('TRIPS');
             const [dataLoaded, setDataLoaded] = useState(false);
 
+            // Valores de Odómetro INICIALIZADOS EN 0 como se pidió
             const [vehicleOdometers, setVehicleOdometers] = useState({
-                PERSONAL: 10500,
-                COMPANY_FUEL: 45200,
-                COMPANY_ELECTRIC: 5000,
+                PERSONAL: 0,
+                COMPANY_FUEL: 0,
+                COMPANY_ELECTRIC: 0,
                 OTHER: 0
             });
             
@@ -668,7 +727,7 @@
 
             const [dashboardVehicleId, setDashboardVehicleId] = useState('PERSONAL');
 
-            // Modales
+            // Modales y Flags
             const [showLocationSelector, setShowLocationSelector] = useState(false);
             const [showOdometerEditor, setShowOdometerEditor] = useState(false);
             const [showVehicleSelector, setShowVehicleSelector] = useState(false);
@@ -676,17 +735,23 @@
             const [showDestinationModal, setShowDestinationModal] = useState(false); 
             const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
             const [showParkingAskModal, setShowParkingAskModal] = useState(false);
-            const [showChargeTypeModal, setShowChargeTypeModal] = useState(false); // Modal selector AC/DC
-            const [showUpdatePrompt, setShowUpdatePrompt] = useState(false); // Modal actualización online
+            const [showChargeTypeModal, setShowChargeTypeModal] = useState(false);
+            const [showNewVersionModal, setShowNewVersionModal] = useState(false);
+            const [newVersionDetected, setNewVersionDetected] = useState('');
+            const [showInfoModal, setShowInfoModal] = useState(false);
+            const [showResumeModal, setShowResumeModal] = useState(false);
+            
+            // Estado Temporal para reanudar viajes
+            const [tempResumableTrip, setTempResumableTrip] = useState(null);
 
             const [editingTrip, setEditingTrip] = useState(null);
-            const [editingVisit, setEditingVisit] = useState(null); // Nuevo estado para editar visita
+            const [editingVisit, setEditingVisit] = useState(null);
             
             const [locationSelectorMode, setLocationSelectorMode] = useState('ORIGIN'); 
             const [textModalTitle, setTextModalTitle] = useState('Nombre del Cliente');
             const [pendingStartData, setPendingStartData] = useState(null);
 
-            // Configs (Valores actuales)
+            // Configs
             const [vehicleConfigs, setVehicleConfigs] = useState({
                 PERSONAL: { tollPrice: '162.00', fuelPrice: '78.02', kmValue: '15.00', currency: 'UYU' },
                 COMPANY_FUEL: { tollPrice: '162.00', fuelPrice: '78.02', kmValue: '12.00', currency: 'UYU' },
@@ -707,7 +772,7 @@
 
             const [expenseModalData, setExpenseModalData] = useState({
                 isOpen: false,
-                id: null, // Para edición
+                id: null,
                 category: '', 
                 amount: '',
                 currency: 'UYU',
@@ -715,8 +780,8 @@
                 method: 'EFECTIVO',
                 type: 'Personal',
                 notes: '',
-                odometer: '', // Nuevo campo
-                volume: '' // Nuevo campo (litros/kwh)
+                odometer: '',
+                volume: ''
             });
 
             const [inputOdometer, setInputOdometer] = useState('');
@@ -725,17 +790,19 @@
             const [gapKm, setGapKm] = useState(0);
             const [elapsedTime, setElapsedTime] = useState(0);
 
-            // --- INDEXEDDB LOAD & SAVE ---
+            // --- CARGAR DATOS ---
             useEffect(() => {
                 const loadData = async () => {
                     try {
-                        const [savedTrips, savedExpenses, savedVisits, savedOdometers, savedConfigs, savedLocation] = await Promise.all([
+                        const [savedTrips, savedExpenses, savedVisits, savedOdometers, savedConfigs, savedLocation, savedAppState, savedCurrentTrip] = await Promise.all([
                             dbHelper.get('trips'),
                             dbHelper.get('expenses'),
                             dbHelper.get('visits'),
                             dbHelper.get('odometers'),
                             dbHelper.get('configs'),
-                            dbHelper.get('lastLocation')
+                            dbHelper.get('lastLocation'),
+                            dbHelper.get('appState'), // Recuperamos estado
+                            dbHelper.get('currentTrip') // Recuperamos viaje en curso
                         ]);
 
                         if (savedTrips) setTrips(savedTrips);
@@ -745,10 +812,18 @@
                         if (savedConfigs) setVehicleConfigs(savedConfigs);
                         if (savedLocation) setLastLocation(savedLocation);
                         
-                        // Check for updates if not first run (simulated)
-                        if (savedConfigs) {
-                            setShowUpdatePrompt(true);
+                        // LÓGICA DE RECUPERACIÓN DE VIAJE
+                        if (savedAppState === 'ACTIVE' && savedCurrentTrip) {
+                            // Convertir strings de fecha a objetos Date si es necesario
+                            if (savedCurrentTrip.startTime && typeof savedCurrentTrip.startTime === 'string') {
+                                savedCurrentTrip.startTime = new Date(savedCurrentTrip.startTime);
+                            }
+                            setTempResumableTrip(savedCurrentTrip);
+                            setShowResumeModal(true);
                         }
+
+                        // Verificar actualizaciones en GitHub silenciosamente
+                        checkForUpdates();
 
                         setDataLoaded(true);
                     } catch (error) {
@@ -759,36 +834,83 @@
                 loadData();
             }, []);
 
+            // --- PERSISTENCIA CONSTANTE (Para evitar perder datos al cerrar) ---
             useEffect(() => { if(dataLoaded) dbHelper.set('trips', trips); }, [trips, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('expenses', expenses); }, [expenses, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('visits', visits); }, [visits, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('odometers', vehicleOdometers); }, [vehicleOdometers, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('configs', vehicleConfigs); }, [vehicleConfigs, dataLoaded]);
             useEffect(() => { if(dataLoaded) dbHelper.set('lastLocation', lastLocation); }, [lastLocation, dataLoaded]);
+            // Guardamos el estado y el viaje actual
+            useEffect(() => { if(dataLoaded) dbHelper.set('appState', appState); }, [appState, dataLoaded]);
+            useEffect(() => { if(dataLoaded) dbHelper.set('currentTrip', currentTrip); }, [currentTrip, dataLoaded]);
 
             // --- TIMER ---
             useEffect(() => {
                 let interval;
                 if (appState === 'ACTIVE') {
+                    // Si recuperamos un viaje, ajustamos el timer
+                    if (currentTrip.startTime) {
+                         const start = new Date(currentTrip.startTime).getTime();
+                         const now = new Date().getTime();
+                         const diff = Math.floor((now - start) / 1000);
+                         setElapsedTime(diff > 0 ? diff : 0);
+                    }
                     interval = setInterval(() => setElapsedTime(prev => prev + 1), 1000);
                 } else {
                     setElapsedTime(0);
                 }
                 return () => clearInterval(interval);
-            }, [appState]);
+            }, [appState, currentTrip.startTime]);
 
-            // --- LOGIC ---
+            // --- LÓGICA ---
 
-            const handleUpdateRates = () => {
-                const updatedConfigs = { ...vehicleConfigs };
-                Object.keys(updatedConfigs).forEach(key => {
-                    updatedConfigs[key].tollPrice = OFFICIAL_RATES.toll;
-                    if(updatedConfigs[key].fuelPrice) updatedConfigs[key].fuelPrice = OFFICIAL_RATES.fuel;
-                    if(updatedConfigs[key].fuelPriceAC) updatedConfigs[key].fuelPriceAC = OFFICIAL_RATES.electricAC;
-                    if(updatedConfigs[key].fuelPriceDC) updatedConfigs[key].fuelPriceDC = OFFICIAL_RATES.electricDC;
-                });
-                setVehicleConfigs(updatedConfigs);
-                setShowUpdatePrompt(false);
+            const checkForUpdates = async () => {
+                try {
+                    const response = await fetch(GITHUB_RAW_URL);
+                    if (response.ok) {
+                        const text = await response.text();
+                        // Buscamos el string de versión en el título
+                        const versionMatch = text.match(/<title>Asistente de Viaje v(\d+\.\d+\.\d+)<\/title>/);
+                        if (versionMatch && versionMatch[1]) {
+                            const remoteVer = versionMatch[1];
+                            if (compareVersions(remoteVer, CURRENT_VERSION) > 0) {
+                                setNewVersionDetected(remoteVer);
+                                setShowNewVersionModal(true);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log("No se pudo verificar actualizaciones (offline o error fetch).");
+                }
+            };
+
+            const compareVersions = (v1, v2) => {
+                const parts1 = v1.split('.').map(Number);
+                const parts2 = v2.split('.').map(Number);
+                for (let i = 0; i < 3; i++) {
+                    if (parts1[i] > parts2[i]) return 1;
+                    if (parts1[i] < parts2[i]) return -1;
+                }
+                return 0;
+            };
+
+            const handleResumeTrip = () => {
+                if (tempResumableTrip) {
+                    setCurrentTrip(tempResumableTrip);
+                    setAppState('ACTIVE');
+                    setDashboardVehicleId(tempResumableTrip.vehicle);
+                }
+                setShowResumeModal(false);
+            };
+
+            const handleDiscardTrip = () => {
+                setTempResumableTrip(null);
+                setAppState('IDLE');
+                // Limpiamos la DB para que no vuelva a preguntar
+                dbHelper.set('appState', 'IDLE');
+                dbHelper.set('currentTrip', null);
+                setShowResumeModal(false);
             };
 
             const getActiveConfig = () => {
@@ -810,7 +932,6 @@
             };
 
             const openExpenseModal = (category, amountOverride = null, expenseToEdit = null) => {
-                // Determine current odometer for charge events
                 const currentVId = (appState === 'ACTIVE' || appState === 'ENDING' || appState === 'STARTING') ? currentTrip.vehicle : dashboardVehicleId;
                 const currentOdo = vehicleOdometers[currentVId] || 0;
 
@@ -854,7 +975,7 @@
                         method: defaults.method,
                         type: defaults.type,
                         notes: '',
-                        odometer: currentOdo, // Pre-fill with current vehicle odometer
+                        odometer: currentOdo,
                         volume: ''
                     });
                 }
@@ -862,20 +983,17 @@
             };
 
             const confirmExpense = () => {
-                // Validar si es carga y actualizar odómetro global si es necesario
                 const isCharge = ['Carga Combustible', 'Carga Eléctrica'].includes(expenseModalData.category);
                 const currentVId = (appState === 'ACTIVE' || appState === 'ENDING' || appState === 'STARTING') ? currentTrip.vehicle : dashboardVehicleId;
                 
                 if (isCharge && expenseModalData.odometer) {
                     const newOdo = parseInt(expenseModalData.odometer);
                     if (!isNaN(newOdo) && newOdo > vehicleOdometers[currentVId]) {
-                        // Actualizar odómetro del vehículo si el ingresado es mayor
                         setVehicleOdometers(prev => ({ ...prev, [currentVId]: newOdo }));
                     }
                 }
 
                 if (expenseModalData.id) {
-                    // Editing existing expense
                      setExpenses(prev => prev.map(e => e.id === expenseModalData.id ? {
                         ...e,
                         category: expenseModalData.category,
@@ -889,7 +1007,6 @@
                     } : e));
                     setExpenseModalData({ ...expenseModalData, isOpen: false });
                 } else {
-                    // Creating new expense
                     const newExpense = {
                         id: Date.now(),
                         date: new Date().toLocaleDateString(),
@@ -914,7 +1031,6 @@
                     setExpenses(prev => [newExpense, ...prev]);
                     setExpenseModalData({ ...expenseModalData, isOpen: false });
 
-                    // Check for pending start trip after parking expense
                     if (appState === 'STARTING' && pendingStartData) {
                         startTripProcess(pendingStartData.odo, pendingStartData.dest);
                         setPendingStartData(null);
@@ -969,7 +1085,6 @@
                     return;
                 }
                 
-                // Parking Check Logic
                 const isOriginClient = lastLocation.toLowerCase().includes('cliente') || ['Otra', 'Otro'].includes(lastLocation);
                 const hasParkingExpense = currentTrip.tripExpenses.some(e => e.category === 'Estacionamiento');
 
@@ -983,22 +1098,23 @@
             };
 
             const startTripProcess = (startOdo, destinationOverride = undefined) => {
-                setCurrentTrip(prev => ({
-                    ...prev,
+                const newTripState = {
+                    ...currentTrip,
                     startTime: new Date(),
                     origin: lastLocation,
                     destination: destinationOverride !== undefined ? destinationOverride : inputDestination, 
                     startOdometer: startOdo,
-                }));
+                };
+                setCurrentTrip(newTripState);
                 setAppState('ACTIVE');
+                // Guardado inmediato
+                dbHelper.set('appState', 'ACTIVE');
+                dbHelper.set('currentTrip', newTripState);
             };
 
             const handleArrivePress = () => {
-                // Obtener el último odómetro conocido (puede ser el de inicio o uno actualizado en carga)
                 const currentVehicleOdo = vehicleOdometers[currentTrip.vehicle] || 0;
                 const startOdo = parseInt(currentTrip.startOdometer) || 0;
-                
-                // Usamos el mayor valor para evitar retrocesos
                 const lastKnown = Math.max(currentVehicleOdo, startOdo);
                 
                 setInputOdometer((lastKnown + 1).toString());
@@ -1014,7 +1130,7 @@
             const confirmEndTrip = () => {
                 const endOdo = parseInt(inputOdometer) || 0;
                 const distance = endOdo - currentTrip.startOdometer;
-                const safeStartTime = currentTrip.startTime instanceof Date ? currentTrip.startTime : new Date();
+                const safeStartTime = currentTrip.startTime instanceof Date ? currentTrip.startTime : new Date(currentTrip.startTime);
                 const safeEndTime = new Date();
 
                 const newTrip = {
@@ -1028,8 +1144,8 @@
                     vehicle: currentTrip.vehicle,
                     expenses: currentTrip.tripExpenses,
                     status: 'CLOSED',
-                    startOdometer: currentTrip.startOdometer, // GUARDAR ODOMETRO INICIO
-                    endOdometer: endOdo // GUARDAR ODOMETRO FIN
+                    startOdometer: currentTrip.startOdometer,
+                    endOdometer: endOdo
                 };
 
                 setTrips(prev => [newTrip, ...prev]);
@@ -1038,7 +1154,6 @@
                     setVisits(prev => {
                         const idx = prev.findIndex(v => v.client === newTrip.origin && v.status === 'OPEN');
                         if (idx !== -1) {
-                            // Update existing visit
                             const updated = [...prev];
                             updated[idx] = { 
                                 ...updated[idx], 
@@ -1065,6 +1180,10 @@
                 setVehicleOdometers(prev => ({ ...prev, [currentTrip.vehicle]: endOdo }));
                 setLastLocation(inputDestination);
                 setAppState('IDLE');
+                
+                // Limpiar persistencia de viaje activo
+                dbHelper.set('appState', 'IDLE');
+                dbHelper.set('currentTrip', null);
             };
 
             const handleLocationSelection = (loc) => {
@@ -1096,12 +1215,8 @@
                 }
             }
             
-            // --- SYNC LOGIC (The "Single Source of Truth" Fix) ---
             const saveEditedTrip = (updatedTrip) => {
-                // 1. Update Trips List
                 setTrips(prev => prev.map(t => t.id === updatedTrip.id ? updatedTrip : t));
-                
-                // 2. Sync with Visits (Find visits that contain this trip and update them)
                 setVisits(prev => prev.map(v => {
                     let newV = { ...v };
                     let changed = false;
@@ -1115,10 +1230,7 @@
                     }
                     return changed ? newV : v;
                 }));
-                
                 setEditingTrip(null);
-
-                // 3. Update global odometer if this is the latest trip (Sync with Version 1.0.39 logic)
                 const vehicleTrips = trips.filter(t => t.vehicle === updatedTrip.vehicle);
                 if (vehicleTrips.length > 0 && vehicleTrips[0].id === updatedTrip.id) {
                      setVehicleOdometers(prev => ({
@@ -1129,18 +1241,13 @@
             };
 
             const deleteTrip = (tripId) => {
-                // 1. Delete from Trips
                 setTrips(prev => prev.filter(t => t.id !== tripId));
-                
-                // 2. Sync with Visits (Remove trip from visit, or delete visit if empty?)
-                // Strategy: Just nullify the trip. If both null, visit remains but empty (or could delete).
                 setVisits(prev => prev.map(v => {
                     let newV = { ...v };
                     if (newV.inboundTrip && newV.inboundTrip.id === tripId) newV.inboundTrip = null;
                     if (newV.outboundTrip && newV.outboundTrip.id === tripId) newV.outboundTrip = null;
                     return newV;
                 }));
-                
                 setEditingTrip(null);
             };
             
@@ -1194,7 +1301,6 @@
                         onClose={() => setShowDestinationModal(false)}
                         onConfirm={(name) => {
                             const finalName = name.trim();
-                            // Lógica para añadir prefijo si es cliente
                             let formattedName = finalName;
                             if (textModalTitle.includes('Cliente') && !finalName.toLowerCase().startsWith('cliente')) {
                                  formattedName = `Cliente: ${finalName}`;
@@ -1228,16 +1334,27 @@
                        onYes={() => {
                           setShowParkingAskModal(false);
                           openExpenseModal('Estacionamiento');
-                          // The actual start will happen in confirmExpense
                        }}
                     />
-
-                    <UpdatePromptModal
-                        isOpen={showUpdatePrompt}
-                        onClose={() => setShowUpdatePrompt(false)}
-                        onConfirm={handleUpdateRates}
-                    />
                     
+                    {/* MODALES NUEVOS */}
+                    <NewVersionModal
+                        isOpen={showNewVersionModal}
+                        remoteVersion={newVersionDetected}
+                        onClose={() => setShowNewVersionModal(false)}
+                    />
+
+                    <InfoModal 
+                        isOpen={showInfoModal}
+                        onClose={() => setShowInfoModal(false)}
+                    />
+
+                    <ResumeTripModal 
+                        isOpen={showResumeModal}
+                        onResume={handleResumeTrip}
+                        onDiscard={handleDiscardTrip}
+                    />
+
                     <TripEditModal 
                         isOpen={!!editingTrip}
                         trip={editingTrip}
@@ -1303,8 +1420,11 @@
                                 </div>
                             )}
 
-                            <div className="bg-slate-800 text-white p-6 rounded-b-[2rem] shadow-xl z-10">
-                                <div className="flex justify-between items-start mb-6">
+                            <div className="bg-slate-800 text-white p-6 rounded-b-[2rem] shadow-xl z-10 relative">
+                                <button onClick={() => setShowInfoModal(true)} className="absolute top-6 left-6 text-slate-400 hover:text-white transition-colors">
+                                    <Icon name="Info" size={20}/>
+                                </button>
+                                <div className="flex justify-between items-start mb-6 pl-8">
                                     <div><h1 className="text-xl font-bold">Bitácora de Viaje</h1><p className="text-slate-400 text-xs">Sistema de Control</p></div>
                                     <div className="flex gap-2">
                                         <button onClick={() => setAppState('HISTORY')} className="bg-slate-700 p-2 rounded-full hover:bg-slate-600 transition-colors"><Icon name="History" size={20}/></button>
@@ -1374,7 +1494,6 @@
                                                         <span className="text-xs text-slate-400">{t.startTime} - {t.endTime}</span>
                                                     </div>
                                                 </div>
-                                                {/* Mini badge si fue carga */}
                                                 {t.expenses && t.expenses.some(e => e.category.includes('Carga')) && (
                                                     <div className="mt-2 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-500">
                                                         <span className="flex items-center"><Icon name="Fuel" size={10} className="mr-1"/> Carga</span>
@@ -1391,7 +1510,7 @@
                         </div>
                     )}
                     
-                    {/* ... Resto de las vistas ... */}
+                    {/* VIEW: STARTING */}
                     {appState === 'STARTING' && (
                         <div className="flex flex-col h-screen w-full max-w-md mx-auto p-5 font-sans relative overflow-hidden bg-white shadow-2xl">
                              {showGapAlert && (
@@ -1445,7 +1564,6 @@
                                         <input type="number" value={inputOdometer} onChange={e => setInputOdometer(e.target.value)} className="w-full bg-transparent text-4xl font-mono font-bold text-slate-800 outline-none" autoFocus onFocus={(e) => e.target.select()}/>
                                     </div>
                                     
-                                    {/* Origin Selector */}
                                     <button onClick={() => { setLocationSelectorMode('ORIGIN'); setShowLocationSelector(true); }} className="w-full flex items-center justify-between p-4 border border-slate-200 rounded-2xl bg-white hover:bg-slate-50 transition-colors">
                                         <span className="text-slate-500 font-medium">Saliendo de:</span>
                                         <div className="flex items-center font-bold text-slate-800 bg-blue-50 px-3 py-1 rounded-full"><Icon name="MapPin" size={14} className="mr-1 text-blue-500"/>{lastLocation}<Icon name="Edit2" size={12} className="ml-2 text-blue-300"/></div>
@@ -1462,7 +1580,6 @@
                                         </div>
                                     )}
 
-                                    {/* Destination Selector (NEW GRID INLINE) */}
                                     <div>
                                         <label className="text-xs font-bold text-slate-400 uppercase block mb-3">¿Hacia dónde vas?</label>
                                         <div className="grid grid-cols-2 gap-3">
@@ -1523,7 +1640,6 @@
                         <div className="flex flex-col h-screen bg-slate-900 text-white w-full max-w-md mx-auto shadow-2xl overflow-hidden font-sans relative">
                             <div className="z-10 bg-slate-800/80 backdrop-blur-md p-4 flex justify-between items-center border-b border-slate-700">
                                 <div className="flex items-center text-emerald-400 animate-pulse"><div className="w-2 h-2 bg-emerald-400 rounded-full mr-2"></div><span className="font-bold text-xs tracking-widest uppercase">En Ruta</span></div>
-                                {/* Modified Right Side with Timer and Cancel Button */}
                                 <div className="flex items-center gap-3">
                                     <div className="font-mono text-xl flex items-center"><Icon name="Clock" size={16} className="mr-2 text-slate-500"/>{formatTime(elapsedTime)}</div>
                                     <button onClick={() => setAppState('IDLE')} className="bg-slate-800 p-2 rounded-full text-rose-500 border border-slate-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-colors">
@@ -1669,7 +1785,6 @@
                     {/* VIEW: HISTORY */}
                     {appState === 'HISTORY' && (
                         <div className="flex flex-col h-screen w-full max-w-md mx-auto shadow-2xl overflow-hidden font-sans relative bg-slate-50">
-                            {/* Modal Edición de Viaje */}
                             <TripEditModal 
                                 isOpen={!!editingTrip}
                                 trip={editingTrip}
@@ -1713,7 +1828,6 @@
                                                             <span className="text-xs text-slate-400">{t.startTime} - {t.endTime}</span>
                                                         </div>
                                                     </div>
-                                                    {/* Mini badge si fue carga */}
                                                     {t.expenses && t.expenses.some(e => e.category.includes('Carga')) && (
                                                         <div className="mt-2 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-500">
                                                             <span className="flex items-center"><Icon name="Fuel" size={10} className="mr-1"/> Carga</span>
@@ -1736,7 +1850,6 @@
                                                     <div className="text-xs text-slate-500 space-y-1 mt-1">
                                                         <div className="flex justify-between"><span>Ida: {v.inboundTrip.startTime} ({v.inboundTrip.distance}km)</span></div>
                                                         {v.outboundTrip ? <div className="flex justify-between border-t border-slate-50 pt-1"><span>Vuelta: {v.outboundTrip.endTime} ({v.outboundTrip.distance}km)</span></div> : <div className="text-amber-500 italic">Pendiente de retorno...</div>}
-                                                        {/* Calculo de Costo Total de Visita */}
                                                         <div className="flex justify-between border-t border-slate-100 pt-2 mt-2 font-bold text-slate-700">
                                                             <span>Total Gastos:</span>
                                                             <span>
