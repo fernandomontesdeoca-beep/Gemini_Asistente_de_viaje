@@ -20,7 +20,7 @@ Una aplicación web progresiva (PWA) de **archivo único** diseñada para llevar
 
 ### **Opción 1: Online (GitHub Pages)**
 
-\[Inserta aquí el link si activas GitHub Pages, ej: https://www.google.com/search?q=https://usuario.github.io/repo\]
+\[Inserta aquí el link si activas GitHub Pages, ej: https://www.google.com/search?q=https://usuario.github.io/repo](https://fernandomontesdeoca-beep.github.io/Gemini_Asistente_de_viaje/\]
 
 ### **Opción 2: Local (PC o Android)**
 
