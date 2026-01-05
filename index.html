@@ -3,21 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Asistente de Viaje v1.0.43</title>
+    <title>Asistente de Viaje v1.0.44</title>
     <meta name="description" content="Bitácora de viajes y gastos offline">
     <meta name="theme-color" content="#0f172a">
     
-    <!-- Enlace al Manifiesto (Necesario para PWA) -->
     <link rel="manifest" href="./manifest.json">
     
-    <!-- 1. Estilos: Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 2. React y ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- 3. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -213,8 +209,8 @@
 
         // --- COMPONENTES ---
 
-        // Modal de Actualización Online (Simulado)
-        const UpdatePromptModal = ({ isOpen, onClose, onConfirm }) => {
+        // Modal de Actualización Online MEJORADO
+        const UpdatePromptModal = ({ isOpen, onClose, onConfirm, changes }) => {
             if (!isOpen) return null;
             return (
                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
@@ -223,11 +219,30 @@
                             <div className="bg-blue-100 p-3 rounded-full mb-4">
                                 <Icon name="Zap" size={32} className="text-blue-600"/>
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">Actualización de Tarifas</h3>
-                            <p className="text-slate-500 mb-6 text-sm">Se han detectado nuevos valores oficiales (UTE/ANCAP 2025). ¿Deseas actualizar tu configuración?</p>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">Tarifas Actualizadas</h3>
+                            <p className="text-slate-500 mb-4 text-xs">Los valores oficiales en la web son distintos a tu configuración.</p>
+                            
+                            {/* TABLA DE COMPARACIÓN */}
+                            <div className="bg-slate-50 rounded-xl p-3 w-full mb-6">
+                                <div className="grid grid-cols-3 gap-1 text-xs font-bold text-slate-400 border-b border-slate-200 pb-2 mb-2 uppercase tracking-wider">
+                                    <span className="text-left">Concepto</span>
+                                    <span>Tuyo</span>
+                                    <span>Nuevo</span>
+                                </div>
+                                <div className="space-y-2">
+                                    {changes && changes.map((change, idx) => (
+                                        <div key={idx} className="grid grid-cols-3 gap-1 text-sm items-center">
+                                            <span className="text-left font-bold text-slate-700 truncate">{change.label}</span>
+                                            <span className="text-slate-500 line-through decoration-rose-400">{change.oldVal}</span>
+                                            <span className="text-emerald-600 font-bold">{change.newVal}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="w-full flex gap-3">
-                                <button onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">Ahora no</button>
-                                <button onClick={onConfirm} className="flex-1 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">Actualizar</button>
+                                <button onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 text-sm">Mantener Míos</button>
+                                <button onClick={onConfirm} className="flex-1 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 text-sm">Actualizar Todo</button>
                             </div>
                         </div>
                     </div>
@@ -649,6 +664,7 @@
 
         const App = () => {
             // --- ESTADO ---
+            const [rateChanges, setRateChanges] = useState([]); // <--- NUEVO ESTADO PARA TARIFAS
             const [appState, setAppState] = useState('IDLE');
             const [defaultVehicleId, setDefaultVehicleId] = useState('PERSONAL');
             const [historyTab, setHistoryTab] = useState('TRIPS');
@@ -742,12 +758,44 @@
                         if (savedExpenses) setExpenses(savedExpenses);
                         if (savedVisits) setVisits(savedVisits);
                         if (savedOdometers) setVehicleOdometers(savedOdometers);
-                        if (savedConfigs) setVehicleConfigs(savedConfigs);
                         if (savedLocation) setLastLocation(savedLocation);
                         
-                        // Check for updates if not first run (simulated)
                         if (savedConfigs) {
-                            setShowUpdatePrompt(true);
+                            setVehicleConfigs(savedConfigs);
+                            
+                            // --- NUEVA LÓGICA DE COMPARACIÓN ---
+                            const detectedChanges = [];
+                            
+                            // 1. Usamos 'PERSONAL' como referencia para Peaje y Nafta
+                            const myRef = savedConfigs['PERSONAL']; 
+                            
+                            if (myRef) {
+                                // Comparar Peaje
+                                if (parseFloat(myRef.tollPrice) !== parseFloat(OFFICIAL_RATES.toll)) {
+                                    detectedChanges.push({ label: 'Peaje', oldVal: myRef.tollPrice, newVal: OFFICIAL_RATES.toll });
+                                }
+                                // Comparar Nafta
+                                if (parseFloat(myRef.fuelPrice) !== parseFloat(OFFICIAL_RATES.fuel)) {
+                                    detectedChanges.push({ label: 'Nafta', oldVal: myRef.fuelPrice, newVal: OFFICIAL_RATES.fuel });
+                                }
+                            }
+
+                            // 2. Usamos 'COMPANY_ELECTRIC' como referencia para Eléctricos
+                            const elecRef = savedConfigs['COMPANY_ELECTRIC'];
+                            if (elecRef) {
+                                if (parseFloat(elecRef.fuelPriceAC) !== parseFloat(OFFICIAL_RATES.electricAC)) {
+                                    detectedChanges.push({ label: 'Carga AC', oldVal: elecRef.fuelPriceAC, newVal: OFFICIAL_RATES.electricAC });
+                                }
+                                if (parseFloat(elecRef.fuelPriceDC) !== parseFloat(OFFICIAL_RATES.electricDC)) {
+                                    detectedChanges.push({ label: 'Carga DC', oldVal: elecRef.fuelPriceDC, newVal: OFFICIAL_RATES.electricDC });
+                                }
+                            }
+
+                            // Solo mostrar el modal si hay diferencias reales
+                            if (detectedChanges.length > 0) {
+                                setRateChanges(detectedChanges);
+                                setShowUpdatePrompt(true);
+                            }
                         }
 
                         setDataLoaded(true);
@@ -1236,6 +1284,7 @@
                         isOpen={showUpdatePrompt}
                         onClose={() => setShowUpdatePrompt(false)}
                         onConfirm={handleUpdateRates}
+                        changes={rateChanges}
                     />
                     
                     <TripEditModal 
